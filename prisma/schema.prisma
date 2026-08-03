@@ -1,0 +1,93 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql" // Use "postgresql" for Vercel Postgres / Supabase / Neon / Render Postgres
+  url      = env("DATABASE_URL")
+}
+
+model Admin {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  createdAt    DateTime @default(now())
+}
+
+model Student {
+  id             String   @id @default(uuid())
+  fullName       String
+  email          String   @unique
+  inviteCode     String   @unique
+  isActive       Boolean  @default(true)
+  currentStreak  Int      @default(0)
+  longestStreak  Int      @default(0)
+  lastActiveDate DateTime?
+  cycleStartDate DateTime @default(now())
+  createdAt      DateTime @default(now())
+
+  submissions      Submission[]
+  testSessions     TestSession[]
+  monthlySnapshots MonthlySnapshot[]
+}
+
+model Submission {
+  id                   String          @id @default(uuid())
+  studentId            String
+  student              Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  skill                String          // "LISTENING" | "READING"
+  mode                 String          // "PART_OR_PASSAGE" | "FULL_TEST"
+  partOrPassageNo      Int?
+  correctCount         Int
+  totalCount           Int
+  questionTypeBreakdown String          // JSON string { "Gap Filling": {correct: 6, total: 8} }
+  errorTagCodes        String          // JSON string or comma-separated list of error codes
+  testSessionId        String?
+  testSession          TestSession?    @relation(fields: [testSessionId], references: [id], onDelete: SetNull)
+  submittedAt          DateTime        @default(now())
+}
+
+model TestSession {
+  id             String       @id @default(uuid())
+  studentId      String
+  student        Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  skill          String       // "LISTENING" | "READING"
+  isComplete     Boolean      @default(false)
+  totalCorrect   Int?
+  totalQuestions Int?
+  estimatedBand  Float?
+  startedAt      DateTime     @default(now())
+  completedAt    DateTime?
+  submissions    Submission[]
+}
+
+model BandConversionTable {
+  id           String   @id @default(uuid())
+  skill        String   // "LISTENING" | "READING"
+  rawScoreMin  Int
+  rawScoreMax  Int
+  band         Float
+  updatedAt    DateTime @updatedAt
+}
+
+model ErrorTag {
+  id        String @id @default(uuid())
+  skill     String // "LISTENING" | "READING"
+  groupName String
+  label     String
+  code      String @unique
+}
+
+model MonthlySnapshot {
+  id                  String   @id @default(uuid())
+  studentId           String
+  student             Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  periodLabel         String
+  totalSubmissions    Int
+  meanAccuracyOverall Float
+  meanAccuracyBySkill String   // JSON string { LISTENING: 72.5, READING: 65.0 }
+  estimatedBandLatest String?  // JSON string { LISTENING: 7.5, READING: 7.0 }
+  topErrorTags        String   // JSON string array
+  createdAt           DateTime @default(now())
+}
